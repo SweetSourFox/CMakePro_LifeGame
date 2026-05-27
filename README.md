@@ -1,4 +1,4 @@
-在LifeGame_V1文件夹双击CMakePro_CUDA.exe即直接可运行。欢迎交流。
+
 
 ---
 
