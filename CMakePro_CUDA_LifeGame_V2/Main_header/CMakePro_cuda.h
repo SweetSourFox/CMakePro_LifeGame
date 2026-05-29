@@ -489,7 +489,12 @@ void RenderIntroScreen0(SimState& state, int winW, int winH, bool& isIntroMode, 
 
         char timeBuf[32];
         time_t now = time(nullptr);
-        tm t_struct; localtime_s(&t_struct, &now);
+        tm t_struct;
+#ifdef _WIN32
+        localtime_s(&t_struct, &now);
+#else
+        localtime_r(&now, &t_struct);
+#endif
         strftime(timeBuf, sizeof(timeBuf), "SYSTEM_UTC: %H:%M:%S", &t_struct);
         drawList->AddText(nullptr, 20.0f * scale, { 60 * scale, footY + 15 * scale }, IM_COL32(255, 255, 255, 100), timeBuf);
 
@@ -692,7 +697,11 @@ void RenderIntroScreen1(SimState& state, int winW, int winH, bool& isIntroMode, 
         {
             std::time_t now = std::time(nullptr);
             struct tm now_tm;
+#ifdef _WIN32
             localtime_s(&now_tm, &now);
+#else
+            localtime_r(&now, &now_tm);
+#endif
             char timeBuf[64];
             std::strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", &now_tm);
 
@@ -2489,7 +2498,11 @@ void RenderHamStationScreen(SimState& state, int winW, int winH) {
             // --- 2. 实时系统时间 (Signal White) ---
             std::time_t now = std::time(nullptr);
             struct tm ltm;
+#ifdef _WIN32
             localtime_s(&ltm, &now);
+#else
+            localtime_r(&now, &ltm);
+#endif
 
             ImGui::SetWindowFontScale(2.8f * scale); // 进一步加大时间显示
             ImGui::TextColored(COL_SIGNAL_WHITE, "%02d:%02d:%02d", ltm.tm_hour, ltm.tm_min, ltm.tm_sec);

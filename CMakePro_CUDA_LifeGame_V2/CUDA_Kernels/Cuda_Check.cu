@@ -38,7 +38,12 @@ extern "C" GpuInfo GetCudaDeviceInfo() {
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 
+#ifdef _MSC_VER
     strncpy_s(info.name, prop.name, sizeof(info.name));
+#else
+    strncpy(info.name, prop.name, sizeof(info.name) - 1);
+    info.name[sizeof(info.name) - 1] = '\0';
+#endif
     info.computeCapabilityMajor = prop.major;
     info.computeCapabilityMinor = prop.minor;
     info.totalMem = prop.totalGlobalMem;
