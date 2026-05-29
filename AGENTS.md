@@ -18,6 +18,23 @@ cmake --build . -j$(nproc)
 
 The binary is produced at `build/CMakePro_CUDA_LifeGame_V2/CMakePro_CUDA_LifeGame_V2`.
 
+### Standalone single-file build (Linux, default ON)
+
+Use `-DLIFEGAME_STANDALONE=ON` (default) to produce a self-contained executable:
+
+- All shaders, fonts, icons, and 17 preset RLE patterns are **embedded inside the binary**
+- GLFW, GLEW, and CUDA runtime are **statically linked**
+- No `resources_LifeGame_V2/` folder is required at runtime
+- Binary size is ~38 MB (includes ~30 MB preset data)
+
+```bash
+cmake .. -DLIFEGAME_STANDALONE=ON -DCMAKE_BUILD_TYPE=Release ...
+```
+
+Runtime still requires OS-provided **NVIDIA GPU driver**, **OpenGL**, and **X11** — these cannot be bundled into a single file.
+
+To build with external resource files instead: `-DLIFEGAME_STANDALONE=OFF`
+
 ### Key caveats
 
 - **No GPU in Cloud Agent VMs**: The application requires a physical NVIDIA CUDA-capable GPU at runtime. Without one, the binary will print `[失败] 未找到 CUDA 设备或驱动程序异常！` and exit with code 255. Compilation still works because `nvcc` can cross-compile for a target architecture (set via `-DCMAKE_CUDA_ARCHITECTURES=89`).

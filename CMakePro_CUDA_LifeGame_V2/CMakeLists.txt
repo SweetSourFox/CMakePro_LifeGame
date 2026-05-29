@@ -20,6 +20,8 @@ project(CMakePro_CUDA_LifeGame_V2 LANGUAGES CXX C CUDA)
 
 set(TARGET_NAME "CMakePro_CUDA_LifeGame_V2")
 
+option(LIFEGAME_STANDALONE "Build a self-contained executable with embedded resources" ON)
+
 # ==========================================
 # 2. 第三方库路径设置 (跨平台)
 # ==========================================
@@ -31,12 +33,24 @@ if(WIN32)
 else()
     find_package(CUDAToolkit REQUIRED)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GLFW3 REQUIRED glfw3)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    if(LIFEGAME_STANDALONE)
+        include(FetchContent)
+        set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(glfw
+            GIT_REPOSITORY https://github.com/glfw/glfw.git
+            GIT_TAG 3.3.10
+        )
+        FetchContent_MakeAvailable(glfw)
+    else()
+        pkg_check_modules(GLFW3 REQUIRED glfw3)
+    endif()
     pkg_check_modules(GLEW REQUIRED glew)
     find_package(OpenGL REQUIRED)
-    pkg_check_modules(SDL2 REQUIRED sdl2)
-    pkg_check_modules(SDL2_IMAGE REQUIRED SDL2_image)
-    pkg_check_modules(SDL2_MIXER REQUIRED SDL2_mixer)
 endif()
 
 # ==========================================
@@ -106,19 +120,23 @@ else()
 endif()
 
 # ==========================================
-# 6. 资源文件同步 (resources_gpu_v32)
+# 6. 资源文件 (嵌入或复制)
 # ==========================================
 set(RESOURCE_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources_LifeGame_V2")
-set(RESOURCE_DEST_DIR "${CMAKE_BINARY_DIR}/resources_LifeGame_V2")
 
-file(GLOB_RECURSE RESOURCE_FILES "${RESOURCE_SRC_DIR}/*")
-
-add_custom_target(copy_resources_LifeGame_V2
-    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${RESOURCE_SRC_DIR} ${RESOURCE_DEST_DIR}
-    DEPENDS ${RESOURCE_FILES}
-    COMMENT "Syncing resource files..."
-)
-add_dependencies(${TARGET_NAME} copy_resources_LifeGame_V2)
+if(LIFEGAME_STANDALONE AND NOT WIN32)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedResources.cmake")
+    lifegame_embed_resources(${TARGET_NAME} "${RESOURCE_SRC_DIR}")
+else()
+    set(RESOURCE_DEST_DIR "${CMAKE_BINARY_DIR}/resources_LifeGame_V2")
+    file(GLOB_RECURSE RESOURCE_FILES "${RESOURCE_SRC_DIR}/*")
+    add_custom_target(copy_resources_LifeGame_V2
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${RESOURCE_SRC_DIR} ${RESOURCE_DEST_DIR}
+        DEPENDS ${RESOURCE_FILES}
+        COMMENT "Syncing resource files..."
+    )
+    add_dependencies(${TARGET_NAME} copy_resources_LifeGame_V2)
+endif()
 
 # ==========================================
 # 7. 配置头文件路径 (Include)
@@ -164,26 +182,39 @@ else()
     # ==========================================
     # 8+9. Linux: use pkg-config and find_package results
     # ==========================================
-    target_include_directories(${TARGET_NAME} PRIVATE
-        ${GLFW3_INCLUDE_DIRS}
-        ${GLEW_INCLUDE_DIRS}
-        ${SDL2_INCLUDE_DIRS}
-        ${SDL2_IMAGE_INCLUDE_DIRS}
-        ${SDL2_MIXER_INCLUDE_DIRS}
-        ${CUDAToolkit_INCLUDE_DIRS}
-    )
-    target_compile_definitions(${TARGET_NAME} PRIVATE GLEW_STATIC)
-    target_link_libraries(${TARGET_NAME} PRIVATE
-        ${GLFW3_LIBRARIES}
-        ${GLEW_LIBRARIES}
-        OpenGL::GL
-        ${SDL2_LIBRARIES}
-        ${SDL2_IMAGE_LIBRARIES}
-        ${SDL2_MIXER_LIBRARIES}
-        CUDA::cudart
-        CUDA::cuda_driver
-        dl pthread
-    )
+    if(LIFEGAME_STANDALONE)
+        find_library(GLEW_STATIC_LIB NAMES GLEW PATHS /usr/lib/x86_64-linux-gnu /usr/lib64 REQUIRED)
+        target_include_directories(${TARGET_NAME} PRIVATE
+            ${GLEW_INCLUDE_DIRS}
+            ${CUDAToolkit_INCLUDE_DIRS}
+        )
+        target_compile_definitions(${TARGET_NAME} PRIVATE GLEW_STATIC)
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            glfw
+            ${GLEW_STATIC_LIB}
+            OpenGL::GL
+            CUDA::cudart_static
+            dl pthread rt m X11
+        )
+        target_link_options(${TARGET_NAME} PRIVATE
+            -static-libstdc++
+            -static-libgcc
+        )
+    else()
+        target_include_directories(${TARGET_NAME} PRIVATE
+            ${GLFW3_INCLUDE_DIRS}
+            ${GLEW_INCLUDE_DIRS}
+            ${CUDAToolkit_INCLUDE_DIRS}
+        )
+        target_compile_definitions(${TARGET_NAME} PRIVATE GLEW_STATIC)
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            ${GLFW3_LIBRARIES}
+            ${GLEW_LIBRARIES}
+            OpenGL::GL
+            CUDA::cudart
+            dl pthread
+        )
+    endif()
 endif()
 
 # ==========================================

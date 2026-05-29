@@ -97,8 +97,17 @@ int main() {
 
     // 加载窗口图标
     GLFWimage images[1];
+    images[0].pixels = nullptr;
+#ifdef LIFEGAME_EMBEDDED_RESOURCES
+    const unsigned char* iconData = nullptr;
+    std::size_t iconSize = 0;
+    if (LoadResourceBinary("images/icon_ls.png", &iconData, &iconSize)) {
+        images[0].pixels = stbi_load_from_memory(iconData, (int)iconSize, &images[0].width, &images[0].height, 0, 4);
+    }
+#else
     std::string image_icon = "../resources_LifeGame_V2/images/icon_ls.png";
     images[0].pixels = stbi_load(image_icon.c_str(), &images[0].width, &images[0].height, 0, 4);
+#endif
     if (images[0].pixels) {
         glfwSetWindowIcon(window, 1, images);
         stbi_image_free(images[0].pixels);
@@ -114,8 +123,8 @@ int main() {
     InitQuad(gl);//
     // 加载渲染着色器 (可视化)
     gl.renderProg = glCreateProgram();
-    std::string vsSrc = loadShaderFromFile("../resources_LifeGame_V2/shader/vs_code.vert");
-    std::string fsSrc = loadShaderFromFile("../resources_LifeGame_V2/shader/fs_code.frag");
+    std::string vsSrc = LoadResourceText("shader/vs_code.vert");
+    std::string fsSrc = LoadResourceText("shader/fs_code.frag");
     GLuint vs = createShader(vsSrc, GL_VERTEX_SHADER);
     GLuint fs = createShader(fsSrc, GL_FRAGMENT_SHADER);
     glAttachShader(gl.renderProg, vs);
