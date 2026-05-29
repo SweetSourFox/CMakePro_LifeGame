@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BUILD_TYPE: Release
+  CUDA_ARCH: "89"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake pkg-config \
+            libglew-dev binutils python3 \
+            xorg-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+
+      - name: Setup CUDA
+        uses: Jimver/cuda-toolkit@v0.2.29
+        id: cuda
+        with:
+          cuda: '12.8.0'
+          method: network
+
+      - name: Configure
+        run: |
+          export PATH="${{ steps.cuda.outputs.cuda-path }}/bin:$PATH"
+          export LD_LIBRARY_PATH="${{ steps.cuda.outputs.cuda-path }}/lib64:$LD_LIBRARY_PATH"
+          cmake -B build -S . \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCH }} \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DLIFEGAME_STANDALONE=ON
+
+      - name: Build
+        run: |
+          export PATH="${{ steps.cuda.outputs.cuda-path }}/bin:$PATH"
+          export LD_LIBRARY_PATH="${{ steps.cuda.outputs.cuda-path }}/lib64:$LD_LIBRARY_PATH"
+          cmake --build build --config ${{ env.BUILD_TYPE }} -j$(nproc)
+
+      - name: Package Linux artifact
+        run: |
+          mkdir -p dist
+          cp build/CMakePro_CUDA_LifeGame_V2/LifeGame_GPU dist/LifeGame_GPU_Linux_x64
+          chmod +x dist/LifeGame_GPU_Linux_x64
+          cd dist && sha256sum LifeGame_GPU_Linux_x64 > SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: dist/
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msys2: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-binutils
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup CUDA
+        uses: Jimver/cuda-toolkit@v0.2.29
+        id: cuda
+        with:
+          cuda: '12.8.0'
+          method: network
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          $env:Path = "${{ steps.cuda.outputs.cuda-path }}\bin;" + $env:Path
+          $env:CMAKE_OBJCOPY = "C:\msys64\mingw64\bin\objcopy.exe"
+          cmake -B build -S . `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCH }} `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DLIFEGAME_STANDALONE=ON `
+            -DPython3_EXECUTABLE=python `
+            -DCMAKE_OBJCOPY="$env:CMAKE_OBJCOPY"
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $env:Path = "${{ steps.cuda.outputs.cuda-path }}\bin;" + $env:Path
+          cmake --build build --config Release -j 4
+
+      - name: Package Windows artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build\CMakePro_CUDA_LifeGame_V2\Release\LifeGame_GPU.exe dist\LifeGame_GPU_Windows_x64.exe
+          Get-FileHash dist\LifeGame_GPU_Windows_x64.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  LifeGame_GPU_Windows_x64.exe" } |
+            Set-Content dist\SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: dist/
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/linux-x64/LifeGame_GPU_Linux_x64
+            artifacts/linux-x64/SHA256SUMS.txt
+            artifacts/windows-x64/LifeGame_GPU_Windows_x64.exe
+            artifacts/windows-x64/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

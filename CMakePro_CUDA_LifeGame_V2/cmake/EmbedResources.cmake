@@ -1,4 +1,22 @@
 function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
+    if(NOT Python3_EXECUTABLE)
+        find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    endif()
+
+    if(NOT CMAKE_OBJCOPY)
+        find_program(CMAKE_OBJCOPY NAMES objcopy llvm-objcopy REQUIRED)
+    endif()
+
+    if(WIN32)
+        set(_lifegame_obj_ext "obj")
+        set(_lifegame_objcopy_format "pe-x86-64")
+        set(_lifegame_objcopy_arch "i386")
+    else()
+        set(_lifegame_obj_ext "o")
+        set(_lifegame_objcopy_format "elf64-x86-64")
+        set(_lifegame_objcopy_arch "i386:x86-64")
+    endif()
+
     file(GLOB_RECURSE _lifegame_resource_files RELATIVE "${RESOURCE_DIR}" "${RESOURCE_DIR}/*")
     set(_lifegame_rel_paths "")
     set(_lifegame_embed_objects "")
@@ -13,7 +31,7 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
         string(REPLACE "/" "_" _sym "${_rel}")
         string(REPLACE "." "_" _sym "${_sym}")
         string(REPLACE "-" "_" _sym "${_sym}")
-        set(_obj "${CMAKE_CURRENT_BINARY_DIR}/embed/${_sym}.o")
+        set(_obj "${CMAKE_CURRENT_BINARY_DIR}/embed/${_sym}.${_lifegame_obj_ext}")
 
         add_custom_command(
             OUTPUT "${_obj}"
@@ -21,9 +39,9 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
             COMMAND ${CMAKE_COMMAND} -E chdir "${RESOURCE_DIR}"
                 ${CMAKE_OBJCOPY}
                 --input binary
-                --output elf64-x86-64
-                --binary-architecture i386:x86-64
-                --rename-section .data=.rodata,alloc,load,readonly,data,contents
+                --output ${_lifegame_objcopy_format}
+                --binary-architecture ${_lifegame_objcopy_arch}
+                --rename-section .data=.rdata,readonly,data,contents
                 "${_rel}"
                 "${_obj}"
             DEPENDS "${_abs}"

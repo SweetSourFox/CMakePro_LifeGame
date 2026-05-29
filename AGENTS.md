@@ -16,7 +16,25 @@ cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CUDA_ARCHITECTU
 cmake --build . -j$(nproc)
 ```
 
-The binary is produced at `build/CMakePro_CUDA_LifeGame_V2/CMakePro_CUDA_LifeGame_V2`.
+The binary is produced at `build/CMakePro_CUDA_LifeGame_V2/LifeGame_GPU` (standalone build, ~38 MB).
+
+### GitHub Release (Linux + Windows)
+
+Push a version tag to trigger `.github/workflows/release.yml`:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+The workflow builds standalone executables for both platforms and publishes a GitHub Release:
+
+| Platform | Artifact |
+|----------|----------|
+| Linux x64 | `LifeGame_GPU_Linux_x64` |
+| Windows x64 | `LifeGame_GPU_Windows_x64.exe` |
+
+Both include embedded shaders, fonts, icons, and all preset RLE patterns. Runtime still requires an NVIDIA GPU with up-to-date drivers and a desktop environment (OpenGL + X11 on Linux).
 
 ### Standalone single-file build (Linux, default ON)
 
