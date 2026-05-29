@@ -4,7 +4,14 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
     endif()
 
     if(NOT CMAKE_OBJCOPY)
-        find_program(CMAKE_OBJCOPY NAMES objcopy llvm-objcopy REQUIRED)
+        find_program(CMAKE_OBJCOPY
+            NAMES llvm-objcopy objcopy
+            PATHS
+                "C:/Program Files/LLVM/bin"
+                "C:/msys64/mingw64/bin"
+                "C:/Program Files/Git/usr/bin"
+            REQUIRED
+        )
     endif()
 
     if(WIN32)

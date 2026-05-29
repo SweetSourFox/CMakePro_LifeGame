@@ -89,10 +89,16 @@ jobs:
           $cuda = $env:CUDA_PATH
           if (-not $cuda) { $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8" }
           $env:Path = "$cuda\bin;" + $env:Path
-          $objcopy = "C:\msys64\mingw64\bin\objcopy.exe"
-          if (-not (Test-Path $objcopy)) {
-            throw "objcopy not found at $objcopy"
+          $objcopyCandidates = @(
+            "C:\Program Files\LLVM\bin\llvm-objcopy.exe",
+            "C:\msys64\mingw64\bin\objcopy.exe",
+            "C:\Program Files\Git\usr\bin\objcopy.exe"
+          )
+          $objcopy = $objcopyCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $objcopy) {
+            throw "objcopy/llvm-objcopy not found. Checked: $($objcopyCandidates -join ', ')"
           }
+          Write-Host "Using objcopy: $objcopy"
           cmake -B build -S . `
             -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCH }} `
