@@ -41,9 +41,9 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
         set(_lifegame_objcopy_arch "i386:x86-64")
     endif()
 
-    set(_lifegame_objcopy_input_flag "--input")
-    set(_lifegame_objcopy_output_flag "--output")
-    set(_lifegame_objcopy_arch_flag "--binary-architecture=${_lifegame_objcopy_arch}")
+    set(_lifegame_objcopy_input_flag "-I")
+    set(_lifegame_objcopy_output_flag "-O")
+    set(_lifegame_objcopy_arch_flag "-B;${_lifegame_objcopy_arch}")
 
     file(GLOB_RECURSE _lifegame_resource_files RELATIVE "${RESOURCE_DIR}" "${RESOURCE_DIR}/*")
     set(_lifegame_rel_paths "")
