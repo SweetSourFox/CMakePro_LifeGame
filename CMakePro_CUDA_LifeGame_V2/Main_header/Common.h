@@ -12,6 +12,59 @@
 #include <mutex>
 #include "imgui.h"
 
+#ifdef LIFEGAME_EMBEDDED_RESOURCES
+#include "EmbeddedResources.h"
+#endif
+
+inline std::string GetResourceBasePath() {
+#ifndef LIFEGAME_EMBEDDED_RESOURCES
+    return "../resources_LifeGame_V2/";
+#else
+    return "";
+#endif
+}
+
+inline std::string ResolveResourcePath(const std::string& virtualPath) {
+    return GetResourceBasePath() + virtualPath;
+}
+
+inline std::string LoadResourceText(const std::string& virtualPath) {
+#ifdef LIFEGAME_EMBEDDED_RESOURCES
+    const EmbeddedAsset* asset = FindEmbeddedAsset(virtualPath.c_str());
+    if (asset && asset->data && asset->size > 0) {
+        return std::string(reinterpret_cast<const char*>(asset->data), asset->size);
+    }
+    std::cerr << "EMBED::ERROR: Missing embedded resource: " << virtualPath << std::endl;
+    return "";
+#else
+    std::ifstream file(ResolveResourcePath(virtualPath));
+    if (!file.is_open()) {
+        std::cerr << "CORE::RESOURCE::FILE_NOT_FOUND: " << ResolveResourcePath(virtualPath) << std::endl;
+        return "";
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+#endif
+}
+
+inline bool LoadResourceBinary(const std::string& virtualPath, const unsigned char** data, std::size_t* size) {
+#ifdef LIFEGAME_EMBEDDED_RESOURCES
+    const EmbeddedAsset* asset = FindEmbeddedAsset(virtualPath.c_str());
+    if (!asset || !asset->data || asset->size == 0) {
+        return false;
+    }
+    *data = asset->data;
+    *size = asset->size;
+    return true;
+#else
+    (void)virtualPath;
+    (void)data;
+    (void)size;
+    return false;
+#endif
+}
+
 // ===================================================================
 // 1. 导航与界面枚举
 // ===================================================================
@@ -285,45 +338,43 @@ inline bool ParseRleHeader(const std::string& headerLine, int& outW, int& outH) 
     }
 }
 
-// 主解析器：解析外部 RLE 文件
-inline RlePattern ParseRleFile(const std::string& filepath) {
-    RlePattern pattern;
-    std::ifstream file(filepath);
-    if (!file.is_open()) {
-        std::cerr << "RLE_PARSER::ERROR: Failed to open file: " << filepath << std::endl;
-        return pattern;
+inline std::string LoadRleSourceText(const std::string& path) {
+    std::string content = LoadResourceText(path);
+    if (!content.empty()) {
+        return content;
     }
+    return loadShaderFromFile(path);
+}
 
+// 主解析器：解析 RLE 文本内容
+inline RlePattern ParseRleFromContent(const std::string& content) {
+    RlePattern pattern;
+    std::istringstream stream(content);
     std::string line;
     std::string dataStr = "";
     bool headerFound = false;
 
-    while (std::getline(file, line)) {
+    while (std::getline(stream, line)) {
         if (line.empty()) continue;
-        if (line[0] == '#') continue; // 跳过注释行
+        if (line[0] == '#') continue;
 
-        // 解析头部行
         if (!headerFound && line.find('x') != std::string::npos && line.find('y') != std::string::npos) {
             if (ParseRleHeader(line, pattern.width, pattern.height)) {
                 headerFound = true;
-                // 预分配为全死细胞 (0)
                 pattern.data.assign(pattern.width * pattern.height, 0);
             }
             continue;
         }
 
-        // 收集之后的所有数据行
         if (headerFound) {
             dataStr += line;
         }
     }
 
     if (!headerFound) {
-        std::cerr << "RLE_PARSER::ERROR: No valid header found in " << filepath << std::endl;
         return pattern;
     }
 
-    // 解码游程数据
     int curX = 0;
     int curY = 0;
     int run = 0;
@@ -331,20 +382,19 @@ inline RlePattern ParseRleFile(const std::string& filepath) {
     for (size_t i = 0; i < dataStr.size(); ++i) {
         char c = dataStr[i];
         if (std::isdigit(c)) {
-            run = run * 10 + (c - '0'); // 累积多位数
+            run = run * 10 + (c - '0');
         }
         else if (c == 'b' || c == 'o' || c == '$' || c == '!') {
             int actualRun = (run == 0) ? 1 : run;
-            run = 0; // 重置计数器
+            run = 0;
 
             if (c == '!') {
-                break; // 结束标记
+                break;
             }
             else if (c == 'b') {
-                curX += actualRun; // 死细胞直接位移
+                curX += actualRun;
             }
             else if (c == 'o') {
-                // 活细胞填充
                 for (int r = 0; r < actualRun; ++r) {
                     if (curX < pattern.width && curY < pattern.height) {
                         pattern.data[curY * pattern.width + curX] = 1;
@@ -353,13 +403,26 @@ inline RlePattern ParseRleFile(const std::string& filepath) {
                 }
             }
             else if (c == '$') {
-                curY += actualRun; // 下移多行
-                curX = 0;          // 回到行首
+                curY += actualRun;
+                curX = 0;
             }
         }
-        // 自动忽略由于换行带来的空格、回车等空白字符
     }
 
+    return pattern;
+}
+
+// 主解析器：从嵌入资源或外部文件加载 RLE
+inline RlePattern ParseRleFile(const std::string& path) {
+    const std::string content = LoadRleSourceText(path);
+    if (content.empty()) {
+        std::cerr << "RLE_PARSER::ERROR: Failed to load resource: " << path << std::endl;
+        return {};
+    }
+    RlePattern pattern = ParseRleFromContent(content);
+    if (pattern.width <= 0) {
+        std::cerr << "RLE_PARSER::ERROR: No valid header found in " << path << std::endl;
+    }
     return pattern;
 }
 
@@ -449,7 +512,11 @@ struct LifePreset {
 };
 
 inline std::string GetPresetDirectory() {
+<<<<<<< HEAD
     return "../resources_LifeGame_V2/presets/";
+=======
+    return "presets/";
+>>>>>>> cursor/code-review-fixes-c3df
 }
 
 /**
@@ -459,28 +526,27 @@ inline std::string GetPresetDirectory() {
  * @param cropW  裁剪宽度
  * @param cropH  裁剪高度
  */
-inline RlePattern ParseRleFileCropped(const std::string& filepath, int startX, int startY, int cropW, int cropH) {
+inline RlePattern ParseRleFileCropped(const std::string& virtualPath, int startX, int startY, int cropW, int cropH) {
     RlePattern pattern;
-    std::ifstream file(filepath);
-    if (!file.is_open()) {
-        std::cerr << "RLE_CROP_PARSER::ERROR: Failed to open file: " << filepath << std::endl;
+    const std::string content = LoadRleSourceText(virtualPath);
+    if (content.empty()) {
+        std::cerr << "RLE_CROP_PARSER::ERROR: Failed to load resource: " << virtualPath << std::endl;
         return pattern;
     }
 
+    std::istringstream stream(content);
     std::string line;
     std::string dataStr = "";
     bool headerFound = false;
     int originalW = 0, originalH = 0;
 
-    // 1. 读取头部以获取原图真实大小并进行边界安全检查
-    while (std::getline(file, line)) {
+    while (std::getline(stream, line)) {
         if (line.empty() || line[0] == '#') continue;
 
         if (!headerFound && line.find('x') != std::string::npos && line.find('y') != std::string::npos) {
             if (ParseRleHeader(line, originalW, originalH)) {
                 headerFound = true;
 
-                // 限制裁剪范围不能超出原图
                 if (startX >= originalW || startY >= originalH) {
                     std::cerr << "RLE_CROP_PARSER::ERROR: Crop origin out of bounds!" << std::endl;
                     return pattern;
@@ -490,7 +556,7 @@ inline RlePattern ParseRleFileCropped(const std::string& filepath, int startX, i
 
                 pattern.width = cropW;
                 pattern.height = cropH;
-                pattern.data.assign(cropW * cropH, 0); // 仅为裁剪后的大小分配内存
+                pattern.data.assign(cropW * cropH, 0);
             }
             continue;
         }

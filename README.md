@@ -42,7 +42,16 @@
 ## 💻 运行环境
 *   **显卡需求**：必须使用支持 CUDA 的 **NVIDIA 显卡**。
 *   **驱动要求**：请确保显卡驱动已更新至较新版本（以便支持最新的 CUDA Runtime）。
-*   **系统**：Windows 10 / 11 (64-bit)，或配置了 Zenity 组件的 Linux 桌面系统。
+*   **系统**：Windows 10 / 11 (64-bit)，或 Linux 桌面系统（X11 + OpenGL）。
+
+## 📦 下载预编译版本
+
+前往 [GitHub Releases](https://github.com/SweetSourFox/CMakePro_LifeGame/releases) 下载最新 standalone 可执行文件（资源已内嵌，无需额外文件夹）：
+
+| 平台 | 文件 |
+|------|------|
+| Windows x64 | `LifeGame_GPU_Windows_x64.exe` |
+| Linux x64 | `LifeGame_GPU_Linux_x64` |
 
 ---
 

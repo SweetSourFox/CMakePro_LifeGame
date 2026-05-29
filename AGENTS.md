@@ -16,7 +16,42 @@ cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CUDA_ARCHITECTU
 cmake --build . -j$(nproc)
 ```
 
-The binary is produced at `build/CMakePro_CUDA_LifeGame_V2/CMakePro_CUDA_LifeGame_V2`.
+The binary is produced at `build/CMakePro_CUDA_LifeGame_V2/LifeGame_GPU` (standalone build, ~38 MB).
+
+### GitHub Release (Linux + Windows)
+
+Push a version tag to trigger `.github/workflows/release.yml`:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+The workflow builds standalone executables for both platforms and publishes a GitHub Release:
+
+| Platform | Artifact |
+|----------|----------|
+| Linux x64 | `LifeGame_GPU_Linux_x64` |
+| Windows x64 | `LifeGame_GPU_Windows_x64.exe` |
+
+Both include embedded shaders, fonts, icons, and all preset RLE patterns. Runtime still requires an NVIDIA GPU with up-to-date drivers and a desktop environment (OpenGL + X11 on Linux).
+
+### Standalone single-file build (Linux, default ON)
+
+Use `-DLIFEGAME_STANDALONE=ON` (default) to produce a self-contained executable:
+
+- All shaders, fonts, icons, and 17 preset RLE patterns are **embedded inside the binary**
+- GLFW, GLEW, and CUDA runtime are **statically linked**
+- No `resources_LifeGame_V2/` folder is required at runtime
+- Binary size is ~38 MB (includes ~30 MB preset data)
+
+```bash
+cmake .. -DLIFEGAME_STANDALONE=ON -DCMAKE_BUILD_TYPE=Release ...
+```
+
+Runtime still requires OS-provided **NVIDIA GPU driver**, **OpenGL**, and **X11** — these cannot be bundled into a single file.
+
+To build with external resource files instead: `-DLIFEGAME_STANDALONE=OFF`
 
 ### Key caveats
 

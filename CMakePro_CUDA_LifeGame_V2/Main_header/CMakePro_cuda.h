@@ -144,8 +144,20 @@ void Init_Imgui(GLFWwindow* window) {
 
     std::string font_path = "../resources_LifeGame_V2/font/consola.ttf";
 
-    // 尝试加载自定义字体
-    ImFont* font = io.Fonts->AddFontFromFileTTF(font_path.c_str(), fontSize);
+    ImFont* font = nullptr;
+#ifdef LIFEGAME_EMBEDDED_RESOURCES
+    const unsigned char* fontData = nullptr;
+    std::size_t fontSizeBytes = 0;
+    if (LoadResourceBinary("font/consola.ttf", &fontData, &fontSizeBytes)) {
+        font = io.Fonts->AddFontFromMemoryTTF(
+            const_cast<unsigned char*>(fontData),
+            (int)fontSizeBytes,
+            fontSize);
+    }
+#endif
+    if (font == nullptr) {
+        font = io.Fonts->AddFontFromFileTTF(font_path.c_str(), fontSize);
+    }
 
     // [安全检查] 如果加载失败 (比如路径不对)，加载默认字体，防止程序崩溃或无文字
     if (font == nullptr) {
