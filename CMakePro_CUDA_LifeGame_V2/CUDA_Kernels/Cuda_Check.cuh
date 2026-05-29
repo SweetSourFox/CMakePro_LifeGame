@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <cuda_runtime.h>
+#include <cstdint>
 
 // 使用 C 兼容的结构体
 struct GpuInfo {
