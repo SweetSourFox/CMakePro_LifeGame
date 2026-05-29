@@ -69,6 +69,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: msys2/setup-msys2@v2
+        id: msys2
         with:
           msystem: MINGW64
           update: true
@@ -89,11 +90,12 @@ jobs:
           $cuda = $env:CUDA_PATH
           if (-not $cuda) { $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8" }
           $env:Path = "$cuda\bin;" + $env:Path
-          $msys2Objcopy = Join-Path $env:RUNNER_TEMP "setup-msys2\mingw64\bin\objcopy.exe"
+          $msysRoot = "${{ steps.msys2.outputs.msys2-location }}"
           $objcopyCandidates = @(
-            $msys2Objcopy,
-            "C:\Program Files\Git\usr\bin\objcopy.exe",
-            "C:\msys64\mingw64\bin\objcopy.exe"
+            (Join-Path $msysRoot "mingw64\bin\objcopy.exe"),
+            (Join-Path $env:RUNNER_TEMP "setup-msys2\msys64\mingw64\bin\objcopy.exe"),
+            "C:\msys64\mingw64\bin\objcopy.exe",
+            "C:\Program Files\Git\usr\bin\objcopy.exe"
           )
           $objcopy = $objcopyCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $objcopy) {

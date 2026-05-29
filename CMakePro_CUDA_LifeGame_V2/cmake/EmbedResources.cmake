@@ -8,9 +8,10 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
             find_program(_lifegame_gnu_objcopy
                 NAMES objcopy
                 PATHS
-                    "$ENV{RUNNER_TEMP}/setup-msys2/mingw64/bin"
-                    "C:/Program Files/Git/usr/bin"
+                    "$ENV{RUNNER_TEMP}/setup-msys2/msys64/mingw64/bin"
+                    "$ENV{RUNNER_TEMP}/msys64/mingw64/bin"
                     "C:/msys64/mingw64/bin"
+                    "C:/Program Files/Git/usr/bin"
             )
             if(_lifegame_gnu_objcopy)
                 set(CMAKE_OBJCOPY "${_lifegame_gnu_objcopy}")
