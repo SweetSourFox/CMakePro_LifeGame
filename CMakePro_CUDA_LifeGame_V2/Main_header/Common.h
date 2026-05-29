@@ -512,11 +512,7 @@ struct LifePreset {
 };
 
 inline std::string GetPresetDirectory() {
-<<<<<<< HEAD
-    return "../resources_LifeGame_V2/presets/";
-=======
     return "presets/";
->>>>>>> cursor/code-review-fixes-c3df
 }
 
 /**
