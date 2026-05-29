@@ -101,6 +101,18 @@ struct GLHandles {
     int simW = 1920;
     int simH = 1080;
 
+    // --- 5. 渲染 Uniform 位置缓存 (link 后一次性查询) ---
+    GLint uWinSize = -1;
+    GLint uViewOffset = -1;
+    GLint uViewZoom = -1;
+    GLint uSimSize = -1;
+    GLint uCoreColor = -1;
+    GLint uTrailColor = -1;
+    GLint uRotate90 = -1;
+    GLint uFlipX = -1;
+    GLint uFlipY = -1;
+    GLint uLifeTexture = -1;
+    GLint uTotalTime = -1;
 };
 
 // ===================================================================
@@ -174,6 +186,33 @@ inline GLuint createShader(const std::string& source, GLenum type) {
         return 0;
     }
     return shader;
+}
+
+inline bool checkShaderLinkStatus(GLuint program) {
+    if (program == 0) return false;
+    int success = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(program, 512, nullptr, infoLog);
+        std::cerr << "CORE::SHADER::LINK_ERROR\n" << infoLog << std::endl;
+        return false;
+    }
+    return true;
+}
+
+inline void CacheRenderUniformLocations(GLHandles& gl) {
+    gl.uWinSize = glGetUniformLocation(gl.renderProg, "winSize");
+    gl.uViewOffset = glGetUniformLocation(gl.renderProg, "viewOffset");
+    gl.uViewZoom = glGetUniformLocation(gl.renderProg, "viewZoom");
+    gl.uSimSize = glGetUniformLocation(gl.renderProg, "simSize");
+    gl.uCoreColor = glGetUniformLocation(gl.renderProg, "coreColor");
+    gl.uTrailColor = glGetUniformLocation(gl.renderProg, "trailColor");
+    gl.uRotate90 = glGetUniformLocation(gl.renderProg, "rotate90");
+    gl.uFlipX = glGetUniformLocation(gl.renderProg, "flipX");
+    gl.uFlipY = glGetUniformLocation(gl.renderProg, "flipY");
+    gl.uLifeTexture = glGetUniformLocation(gl.renderProg, "lifeTexture");
+    gl.uTotalTime = glGetUniformLocation(gl.renderProg, "totalTime");
 }
 
 inline void InitQuad(GLHandles& gl) {

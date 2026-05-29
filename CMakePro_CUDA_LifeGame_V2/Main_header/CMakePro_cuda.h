@@ -202,7 +202,7 @@ inline bool OpenSystemFileDialog(char* buffer, int bufferSize) {
     return GetOpenFileNameA(&ofn);
 #else
     // Linux 原生实现 (需要终端预装 zenity 命令组件)
-    const char* cmd = "zenity --file-selection --file-filter='*.txt' --title='Select Model Data'";
+    const char* cmd = "zenity --file-selection --file-filter='RLE files (*.rle) | *.rle' --file-filter='All files | *.*' --title='Select Model Data'";
     FILE* pipe = popen(cmd, "r");
     if (!pipe) {
         std::cerr << "[IO Error] Zenity not found. Please install it to use the file dialog." << std::endl;
@@ -1293,7 +1293,7 @@ void RenderLifeGameScreen(SimState& state, int winW, int winH) {
     }
 
     static float tickRate = 0.1f, timer = 0.0f, totalSimTime = 0.0f;
-    static bool paused = state.running, showHUD = true;
+    static bool showHUD = true;
     static int generation = 0; // 定义代数
     static ImVec4 cellColor = ImVec4(0.54f, 0.95f, 0.3f, 1.0f);
 
@@ -1646,6 +1646,7 @@ void ReallocateSimulation(GLHandles& gl, int newW, int newH) {
 
     // 8. 填充初始随机种子，防止黑屏
     SeedCudaLife(gl.d_current, gl.simW, gl.simH, 0.2f);
+    cudaMemcpy(gl.d_next, gl.d_current, (size_t)gl.simW * gl.simH, cudaMemcpyDeviceToDevice);
 
     cudaDeviceSynchronize();
 }
@@ -1665,7 +1666,7 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
     static ImVec4 trailColor = ImVec4(0.85f, 0.96f, 0.8f, 1.0f);
 
     static float randomDensity = 0.20f;
-    static std::vector<float> popHistory(18000, 0.0f);
+    static std::vector<float> popHistory(1800, 0.0f);
     static int hIdx = 0;
     static bool showHUD = true;
 
@@ -1711,22 +1712,6 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
             if (viewZoom < 0.1f) viewZoom = 0.1f;
             if (viewZoom > 1000.0f) viewZoom = 1000.0f;
         }
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-            // 平移自动跟手
-            viewOffset.x -= (io.MouseDelta.x / (float)winW) * (aspectCorr.x / viewZoom);
-            viewOffset.y += (io.MouseDelta.y / (float)winH) * (aspectCorr.y / viewZoom);
-        }
-    }
-    // --- [2. 鼠标缩放与平移逻辑] ---
-    if (!io.WantCaptureMouse) {
-        // A. 滚轮缩放 (保持不变)
-        if (io.MouseWheel != 0) {
-            float mouseSpeed = 0.1f * viewZoom;
-            viewZoom += io.MouseWheel * mouseSpeed;
-            if (viewZoom < 0.1f) viewZoom = 0.1f;
-            if (viewZoom > 1000.0f) viewZoom = 1000.0f;
-        }
-        // B. 中键平移 (已修正：乘以 aspectCorr，实现 100% 跟手)
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
             viewOffset.x -= (io.MouseDelta.x / (float)winW) * (aspectCorr.x / viewZoom);
             viewOffset.y += (io.MouseDelta.y / (float)winH) * (aspectCorr.y / viewZoom);
@@ -1840,28 +1825,29 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
     glViewport(0, 0, winW, winH);
     glUseProgram(gl.renderProg);
 
-    glUniform2f(glGetUniformLocation(gl.renderProg, "winSize"), (float)winW, (float)winH);
-    glUniform2f(glGetUniformLocation(gl.renderProg, "viewOffset"), viewOffset.x, viewOffset.y);
-    glUniform1f(glGetUniformLocation(gl.renderProg, "viewZoom"), viewZoom);
+    glUniform2f(gl.uWinSize, (float)winW, (float)winH);
+    glUniform2f(gl.uViewOffset, viewOffset.x, viewOffset.y);
+    glUniform1f(gl.uViewZoom, viewZoom);
 
     // ============================================================================
     // 【核心修正：根据 rotate90 状态，在 C++ 端自动对调 simSize 的宽和高】
     // ============================================================================
     float simW_render = rotate90 ? (float)gl.simH : (float)gl.simW;
     float simH_render = rotate90 ? (float)gl.simW : (float)gl.simH;
-    glUniform2f(glGetUniformLocation(gl.renderProg, "simSize"), simW_render, simH_render);
+    glUniform2f(gl.uSimSize, simW_render, simH_render);
     // ============================================================================
 
-    glUniform3f(glGetUniformLocation(gl.renderProg, "coreColor"), coreColor.x, coreColor.y, coreColor.z);
-    glUniform3f(glGetUniformLocation(gl.renderProg, "trailColor"), trailColor.x, trailColor.y, trailColor.z);
+    glUniform3f(gl.uCoreColor, coreColor.x, coreColor.y, coreColor.z);
+    glUniform3f(gl.uTrailColor, trailColor.x, trailColor.y, trailColor.z);
 
-    glUniform1i(glGetUniformLocation(gl.renderProg, "rotate90"), rotate90 ? 1 : 0);
-    glUniform1i(glGetUniformLocation(gl.renderProg, "flipX"), flipX ? 1 : 0);
-    glUniform1i(glGetUniformLocation(gl.renderProg, "flipY"), flipY ? 1 : 0);
+    glUniform1i(gl.uRotate90, rotate90 ? 1 : 0);
+    glUniform1i(gl.uFlipX, flipX ? 1 : 0);
+    glUniform1i(gl.uFlipY, flipY ? 1 : 0);
+    glUniform1f(gl.uTotalTime, totalSimTime);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, gl.lifeTex);
-    glUniform1i(glGetUniformLocation(gl.renderProg, "lifeTexture"), 0);
+    glUniform1i(gl.uLifeTexture, 0);
     glBindVertexArray(gl.quadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -1946,14 +1932,12 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
                             bool is_selected = (currentRuleIdx == i);
                             if (ImGui::Selectable(rules[i].name, is_selected)) {
                                 currentRuleIdx = i;
-                                SeedCudaLife(gl.d_current, gl.simW, gl.simH, 0.2f);
                             }
                         }
                         ImGui::EndCombo();
                     }
                     ImGui::Separator();
 
-                    static bool classicMode = false;
                     if (ImGui::Checkbox("CLASSIC_VISUAL_MODE", &classicMode)) {
                         if (classicMode) {
                             trailDecay = 0.0f;
@@ -2943,7 +2927,7 @@ void CheckIdleStatus(GLFWwindow* window, SimState& state) {
     // 1. 检查鼠标移动
     double mx, my;
     glfwGetCursorPos(window, &mx, &my);
-    if (abs(mx - state.lastMouseX) > 1.0 || abs(my - state.lastMouseY) > 1.0) {
+    if (std::abs(mx - state.lastMouseX) > 1.0 || std::abs(my - state.lastMouseY) > 1.0) {
         inputDetected = true;
         state.lastMouseX = mx;
         state.lastMouseY = my;
@@ -2969,9 +2953,9 @@ void CheckIdleStatus(GLFWwindow* window, SimState& state) {
     else {
         // 如果正在运行模拟，且超过了空闲时间
         if (!state.isIntroMode && (currentTime - state.lastInputTime > state.idleTimeout)) {
-            state.isIntroMode = true; // 自动进入屏保/欢迎页
-            state.running = false;    // 可选：暂停模拟以省电
-            //state.RenderVisualization = false; // 可选：关闭渲染
+            state.isIntroMode = true;
+            state.currentScreen = AppScreen::Intro0;
+            state.running = false;
             std::cout << "[System] Idle timeout reached. Returning to Intro Screen." << std::endl;
         }
     }

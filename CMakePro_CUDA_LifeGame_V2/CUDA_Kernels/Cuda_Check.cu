@@ -171,9 +171,10 @@ __global__ void kLifeUpdate(const uint8_t* current, uint8_t* next, float* heatMa
         }
     }
 
-    // 热力图计算
+    // 热力图计算：暂停时 next 未更新，必须读取 current
+    uint8_t cellAlive = paused ? current[idx] : next[idx];
     float hVal = heatMap[idx];
-    if (next[idx] == 1) {
+    if (cellAlive == 1) {
         hVal = 1.0f;
     }
     else {
