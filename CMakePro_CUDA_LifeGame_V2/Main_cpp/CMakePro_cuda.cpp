@@ -121,6 +121,10 @@ int main() {
     glAttachShader(gl.renderProg, vs);
     glAttachShader(gl.renderProg, fs);
     glLinkProgram(gl.renderProg);
+    if (!checkShaderLinkStatus(gl.renderProg)) {
+        return -1;
+    }
+    CacheRenderUniformLocations(gl);
 
 
     // 在 gl.renderProg 链接之后
@@ -145,15 +149,17 @@ int main() {
 
     // 必须：给初始数据！
     SeedCudaLife(gl.d_current, 1920, 1080, 0.3f);
+    cudaMemcpy(gl.d_next, gl.d_current, (size_t)1920 * 1080, cudaMemcpyDeviceToDevice);
+    cudaMemset(gl.d_heatData, 0, (size_t)1920 * 1080 * sizeof(float));
 
     // 初始化 ImGui 与 ImPlot
     Init_Imgui(window);
-    ImPlot::CreateContext();
 
     // ============================================================
     // 1.2 初始状态设定
     // ============================================================
     state.isIntroMode = true; // 强制从启动页开始
+    state.lastInputTime = (float)glfwGetTime();
     // 在循环开始前，先根据初始状态设置一次
     glfwSwapInterval(state.vsyncEnabled ? 1 : 0);
     // ============================================================
@@ -207,6 +213,7 @@ int main() {
     // 3. 资源清理 (Cleanup)
     // ============================================================
     cleanup(gl); // 确保实现此函数以释放纹理/Shader资源
+    ImPlot::DestroyContext();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

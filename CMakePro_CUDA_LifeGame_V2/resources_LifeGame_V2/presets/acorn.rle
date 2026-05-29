@@ -1,0 +1,4 @@
+#N Acorn
+#C Methuselah, runs 5206 generations before stabilizing.
+x = 7, y = 3, rule = B3/S23
+bo$2bo$3o2bo!

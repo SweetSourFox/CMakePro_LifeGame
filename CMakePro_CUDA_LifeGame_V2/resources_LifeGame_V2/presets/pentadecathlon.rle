@@ -1,0 +1,4 @@
+#N Pentadecathlon
+#C Period-15 oscillator.
+x = 10, y = 3, rule = B3/S23
+2b3o4bo$2o4bobo$2b3o4bo!

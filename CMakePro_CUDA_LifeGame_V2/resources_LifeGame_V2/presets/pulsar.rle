@@ -1,0 +1,4 @@
+#N Pulsar
+#C Period-3 oscillator.
+x = 13, y = 13, rule = B3/S23
+2b3o3b3o2$2bo6bo2$2bo6bo2$2bo6bo2$2b3o3b3o2$8$2b3o3b3o2$2bo6bo2$2bo6bo2$2bo6bo2$2b3o3b3o2!
