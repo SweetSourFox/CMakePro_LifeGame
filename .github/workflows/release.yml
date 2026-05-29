@@ -90,9 +90,9 @@ jobs:
           if (-not $cuda) { $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8" }
           $env:Path = "$cuda\bin;" + $env:Path
           $objcopyCandidates = @(
-            "C:\Program Files\LLVM\bin\llvm-objcopy.exe",
+            "C:\Program Files\Git\usr\bin\objcopy.exe",
             "C:\msys64\mingw64\bin\objcopy.exe",
-            "C:\Program Files\Git\usr\bin\objcopy.exe"
+            "C:\Program Files\LLVM\bin\llvm-objcopy.exe"
           )
           $objcopy = $objcopyCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $objcopy) {

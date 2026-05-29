@@ -4,14 +4,21 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
     endif()
 
     if(NOT CMAKE_OBJCOPY)
-        find_program(CMAKE_OBJCOPY
-            NAMES llvm-objcopy objcopy
+        find_program(_lifegame_gnu_objcopy
+            NAMES objcopy
             PATHS
-                "C:/Program Files/LLVM/bin"
-                "C:/msys64/mingw64/bin"
                 "C:/Program Files/Git/usr/bin"
-            REQUIRED
+                "C:/msys64/mingw64/bin"
         )
+        if(_lifegame_gnu_objcopy)
+            set(CMAKE_OBJCOPY "${_lifegame_gnu_objcopy}")
+        else()
+            find_program(CMAKE_OBJCOPY
+                NAMES llvm-objcopy
+                PATHS "C:/Program Files/LLVM/bin"
+                REQUIRED
+            )
+        endif()
     endif()
 
     if(WIN32)
@@ -22,6 +29,16 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
         set(_lifegame_obj_ext "o")
         set(_lifegame_objcopy_format "elf64-x86-64")
         set(_lifegame_objcopy_arch "i386:x86-64")
+    endif()
+
+    if(CMAKE_OBJCOPY MATCHES "llvm-objcopy")
+        set(_lifegame_objcopy_input_flag "-I")
+        set(_lifegame_objcopy_output_flag "-O")
+        set(_lifegame_objcopy_arch_flag "")
+    else()
+        set(_lifegame_objcopy_input_flag "--input")
+        set(_lifegame_objcopy_output_flag "--output")
+        set(_lifegame_objcopy_arch_flag "--binary-architecture=${_lifegame_objcopy_arch}")
     endif()
 
     file(GLOB_RECURSE _lifegame_resource_files RELATIVE "${RESOURCE_DIR}" "${RESOURCE_DIR}/*")
@@ -45,9 +62,9 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/embed"
             COMMAND ${CMAKE_COMMAND} -E chdir "${RESOURCE_DIR}"
                 ${CMAKE_OBJCOPY}
-                --input binary
-                --output ${_lifegame_objcopy_format}
-                --binary-architecture ${_lifegame_objcopy_arch}
+                ${_lifegame_objcopy_input_flag} binary
+                ${_lifegame_objcopy_output_flag} ${_lifegame_objcopy_format}
+                ${_lifegame_objcopy_arch_flag}
                 "${_rel}"
                 "${_obj}"
             DEPENDS "${_abs}"
