@@ -438,6 +438,20 @@ inline void LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, 
         << "] successfully loaded at (" << offsetX << ", " << offsetY << ")" << std::endl;
 }
 
+struct LifePreset {
+    const char* name;
+    const char* file;
+    const char* description;
+    int cropX;
+    int cropY;
+    int cropW;
+    int cropH;
+};
+
+inline std::string GetPresetDirectory() {
+    return "../resources_LifeGame_V2/presets/";
+}
+
 /**
  * @brief 极速裁剪 RLE 解析器：只解析并加载指定区域
  * @param startX 裁剪区域的左上角 X
@@ -534,4 +548,34 @@ inline RlePattern ParseRleFileCropped(const std::string& filepath, int startX, i
     }
 
     return pattern;
+}
+
+inline bool DeployLifePreset(GLHandles& gl, const LifePreset& preset, int centerX, int centerY, bool clearWorld = true) {
+    const std::string path = GetPresetDirectory() + preset.file;
+    RlePattern pat;
+    if (preset.cropW > 0 && preset.cropH > 0) {
+        pat = ParseRleFileCropped(path, preset.cropX, preset.cropY, preset.cropW, preset.cropH);
+    }
+    else {
+        pat = ParseRleFile(path);
+    }
+
+    if (pat.width <= 0 || pat.height <= 0) {
+        std::cerr << "PRESET::ERROR: Failed to load " << preset.file << std::endl;
+        return false;
+    }
+
+    if (clearWorld) {
+        cudaMemset(gl.d_current, 0, (size_t)gl.simW * gl.simH);
+        cudaMemset(gl.d_heatData, 0, (size_t)gl.simW * gl.simH * sizeof(float));
+    }
+
+    int offsetX = centerX - pat.width / 2;
+    int offsetY = centerY - pat.height / 2;
+    if (offsetX < 0) offsetX = 0;
+    if (offsetY < 0) offsetY = 0;
+
+    LoadRleToGpu(gl, pat, offsetX, offsetY);
+    std::cout << "PRESET::SUCCESS: Loaded [" << preset.name << "] from " << preset.file << std::endl;
+    return true;
 }

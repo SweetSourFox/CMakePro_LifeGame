@@ -1,0 +1,4 @@
+#N Die hard
+#C Dies after exactly 130 generations.
+x = 8, y = 3, rule = B3/S23
+6bo$2o$bo3bo!

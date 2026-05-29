@@ -2047,6 +2047,50 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
                     }
 
                     ImGui::Separator();
+                    ImGui::TextColored(coreColor, "CLASSIC_PRESETS");
+
+                    static const LifePreset kLifePresets[] = {
+                        { "Glider",           "glider.rle",                    "3-cell diagonal spaceship", 0, 0, 0, 0 },
+                        { "LWSS",             "lwss.rle",                      "Lightweight spaceship", 0, 0, 0, 0 },
+                        { "Gosper Gun",       "gosper_glider_gun.rle",         "First known glider gun", 0, 0, 0, 0 },
+                        { "Blinker",          "blinker.rle",                   "Period-2 oscillator", 0, 0, 0, 0 },
+                        { "Toad",             "toad.rle",                      "Period-2 oscillator", 0, 0, 0, 0 },
+                        { "Beacon",           "beacon.rle",                    "Period-2 oscillator", 0, 0, 0, 0 },
+                        { "Pulsar",           "pulsar.rle",                    "Period-3 oscillator", 0, 0, 0, 0 },
+                        { "Pentadecathlon",   "pentadecathlon.rle",            "Period-15 oscillator", 0, 0, 0, 0 },
+                        { "Acorn",            "acorn.rle",                     "5206-gen methuselah", 0, 0, 0, 0 },
+                        { "Die Hard",         "diehard.rle",                   "Dies after 130 gens", 0, 0, 0, 0 },
+                        { "R-Pentomino",      "rpentomino.rle",                "Chaotic methuselah", 0, 0, 0, 0 },
+                        { "124P37 Synth",     "124p37_synth.rle",              "76-glider synthesis", 0, 0, 0, 0 },
+                        { "Spacefiller",      "2_spacefillersynthactivation.rle", "Quadratic growth seed", 0, 0, 0, 0 },
+                        { "Breeder",          "Breeder.rle",                   "Quadratic growth", 0, 0, 0, 0 },
+                        { "Glider Synth",     "glider_synth.rle",              "3-glider block synth", 0, 0, 0, 0 },
+                        { "Metapixel",        "2_metapixel.rle",               "OTCA unit cell (crop)", 489, 489, 1080, 1080 },
+                        { "Caterpillar",      "2_caterpillar.rle",             "17c/45 ship (crop)", 1100, 164800, 1920, 1080 },
+                    };
+
+                    const int presetCenterX = gl.simW / 2;
+                    const int presetCenterY = gl.simH / 2;
+                    const float btnW = 155.0f * scale;
+
+                    if (ImGui::BeginTable("PresetGrid", 3, ImGuiTableFlags_SizingFixedFit)) {
+                        for (const LifePreset& preset : kLifePresets) {
+                            ImGui::TableNextColumn();
+                            if (ImGui::Button(preset.name, { btnW, 32.0f * scale })) {
+                                if (DeployLifePreset(gl, preset, presetCenterX, presetCenterY, true)) {
+                                    generation = 0;
+                                    totalSimTime = 0;
+                                    population = GetPopulationCuda(gl.d_current, gl.simW, gl.simH);
+                                }
+                            }
+                            if (ImGui::IsItemHovered()) {
+                                ImGui::SetTooltip("%s\n%s", preset.description, preset.file);
+                            }
+                        }
+                        ImGui::EndTable();
+                    }
+
+                    ImGui::Separator();
 
                     ImGui::Checkbox("ENABLE_VSYNC", &state.vsyncEnabled);
                     if (ImGui::IsItemDeactivatedAfterEdit()) glfwSwapInterval(state.vsyncEnabled ? 1 : 0);

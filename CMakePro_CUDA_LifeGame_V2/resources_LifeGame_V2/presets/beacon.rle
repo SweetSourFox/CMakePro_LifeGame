@@ -1,0 +1,4 @@
+#N Beacon
+#C Period-2 oscillator.
+x = 3, y = 4, rule = B3/S23
+2o$2o$2o2b2o$2b2o!
