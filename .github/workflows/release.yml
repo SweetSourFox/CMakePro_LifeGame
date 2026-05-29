@@ -36,8 +36,8 @@ jobs:
 
       - name: Configure
         run: |
-          export PATH="${{ steps.cuda.outputs.cuda-path }}/bin:$PATH"
-          export LD_LIBRARY_PATH="${{ steps.cuda.outputs.cuda-path }}/lib64:$LD_LIBRARY_PATH"
+          export PATH="${CUDA_PATH}/bin:${PATH}"
+          export LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}"
           cmake -B build -S . \
             -DCMAKE_C_COMPILER=gcc \
             -DCMAKE_CXX_COMPILER=g++ \
@@ -47,8 +47,8 @@ jobs:
 
       - name: Build
         run: |
-          export PATH="${{ steps.cuda.outputs.cuda-path }}/bin:$PATH"
-          export LD_LIBRARY_PATH="${{ steps.cuda.outputs.cuda-path }}/lib64:$LD_LIBRARY_PATH"
+          export PATH="${CUDA_PATH}/bin:${PATH}"
+          export LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}"
           cmake --build build --config ${{ env.BUILD_TYPE }} -j$(nproc)
 
       - name: Package Linux artifact
@@ -70,17 +70,15 @@ jobs:
 
       - uses: msys2/setup-msys2@v2
         with:
-          msys2: MINGW64
+          msystem: MINGW64
           update: true
-          install: >-
-            mingw-w64-x86_64-binutils
+          install: mingw-w64-x86_64-binutils
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Setup CUDA
         uses: Jimver/cuda-toolkit@v0.2.29
-        id: cuda
         with:
           cuda: '12.8.0'
           method: network
@@ -88,20 +86,27 @@ jobs:
       - name: Configure
         shell: pwsh
         run: |
-          $env:Path = "${{ steps.cuda.outputs.cuda-path }}\bin;" + $env:Path
-          $env:CMAKE_OBJCOPY = "C:\msys64\mingw64\bin\objcopy.exe"
+          $cuda = $env:CUDA_PATH
+          if (-not $cuda) { $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8" }
+          $env:Path = "$cuda\bin;" + $env:Path
+          $objcopy = "C:\msys64\mingw64\bin\objcopy.exe"
+          if (-not (Test-Path $objcopy)) {
+            throw "objcopy not found at $objcopy"
+          }
           cmake -B build -S . `
             -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_CUDA_ARCHITECTURES=${{ env.CUDA_ARCH }} `
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
             -DLIFEGAME_STANDALONE=ON `
             -DPython3_EXECUTABLE=python `
-            -DCMAKE_OBJCOPY="$env:CMAKE_OBJCOPY"
+            -DCMAKE_OBJCOPY="$objcopy"
 
       - name: Build
         shell: pwsh
         run: |
-          $env:Path = "${{ steps.cuda.outputs.cuda-path }}\bin;" + $env:Path
+          $cuda = $env:CUDA_PATH
+          if (-not $cuda) { $cuda = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8" }
+          $env:Path = "$cuda\bin;" + $env:Path
           cmake --build build --config Release -j 4
 
       - name: Package Windows artifact

@@ -41,7 +41,6 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
                 --input binary
                 --output ${_lifegame_objcopy_format}
                 --binary-architecture ${_lifegame_objcopy_arch}
-                --rename-section .data=.rdata,readonly,data,contents
                 "${_rel}"
                 "${_obj}"
             DEPENDS "${_abs}"
