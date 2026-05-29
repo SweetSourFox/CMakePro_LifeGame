@@ -4,21 +4,30 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
     endif()
 
     if(NOT CMAKE_OBJCOPY)
-        find_program(_lifegame_gnu_objcopy
-            NAMES objcopy
-            PATHS
-                "C:/Program Files/Git/usr/bin"
-                "C:/msys64/mingw64/bin"
-        )
-        if(_lifegame_gnu_objcopy)
-            set(CMAKE_OBJCOPY "${_lifegame_gnu_objcopy}")
-        else()
-            find_program(CMAKE_OBJCOPY
-                NAMES llvm-objcopy
-                PATHS "C:/Program Files/LLVM/bin"
-                REQUIRED
+        if(WIN32)
+            find_program(_lifegame_gnu_objcopy
+                NAMES objcopy
+                PATHS
+                    "$ENV{RUNNER_TEMP}/setup-msys2/mingw64/bin"
+                    "C:/Program Files/Git/usr/bin"
+                    "C:/msys64/mingw64/bin"
             )
+            if(_lifegame_gnu_objcopy)
+                set(CMAKE_OBJCOPY "${_lifegame_gnu_objcopy}")
+            else()
+                message(FATAL_ERROR
+                    "GNU objcopy is required to embed resources on Windows. "
+                    "Install mingw-w64-x86_64-binutils (msys2) or Git for Windows usr/bin/objcopy.")
+            endif()
+        else()
+            find_program(CMAKE_OBJCOPY NAMES objcopy REQUIRED)
         endif()
+    endif()
+
+    if(WIN32 AND CMAKE_OBJCOPY MATCHES "llvm-objcopy")
+        message(FATAL_ERROR
+            "llvm-objcopy cannot produce MSVC-linkable PE objects for embedded resources. "
+            "Use GNU objcopy from msys2 or Git for Windows.")
     endif()
 
     if(WIN32)
@@ -31,15 +40,9 @@ function(lifegame_embed_resources TARGET_NAME RESOURCE_DIR)
         set(_lifegame_objcopy_arch "i386:x86-64")
     endif()
 
-    if(CMAKE_OBJCOPY MATCHES "llvm-objcopy")
-        set(_lifegame_objcopy_input_flag "-I")
-        set(_lifegame_objcopy_output_flag "-O")
-        set(_lifegame_objcopy_arch_flag "")
-    else()
-        set(_lifegame_objcopy_input_flag "--input")
-        set(_lifegame_objcopy_output_flag "--output")
-        set(_lifegame_objcopy_arch_flag "--binary-architecture=${_lifegame_objcopy_arch}")
-    endif()
+    set(_lifegame_objcopy_input_flag "--input")
+    set(_lifegame_objcopy_output_flag "--output")
+    set(_lifegame_objcopy_arch_flag "--binary-architecture=${_lifegame_objcopy_arch}")
 
     file(GLOB_RECURSE _lifegame_resource_files RELATIVE "${RESOURCE_DIR}" "${RESOURCE_DIR}/*")
     set(_lifegame_rel_paths "")
