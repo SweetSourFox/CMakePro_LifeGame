@@ -1776,15 +1776,19 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
     cudaGraphicsMapResources(1, &gl.cudaRes, 0);
     cudaGraphicsSubResourceGetMappedArray(&gl.cudaArray, gl.cudaRes, 0, 0);
 
-    struct RuleSet { const char* name; int b; int s; };
-    static RuleSet rules[] = {
-        {"Conway's Life (B3/S23)",  (1 << 3), (1 << 2) | (1 << 3)},
-        {"HighLife (B36/S23)",      (1 << 3) | (1 << 6), (1 << 2) | (1 << 3)},
-        {"Seeds (B2/S--)",          (1 << 2), 0},
-        {"WalledCities (B45678/S2345)", (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5)},
-        {"Amoeba (B357/S1358)",     (1 << 3) | (1 << 5) | (1 << 7), (1 << 1) | (1 << 3) | (1 << 5) | (1 << 8)}
-    };
     static int currentRuleIdx = 0;
+    static bool useCustomRule = false;
+    static char customRuleName[64] = "Custom (B3/S23)";
+    static char customRuleInput[64] = "B3/S23";
+    static char customRuleError[128] = "";
+    static EvolutionRule customRule = { customRuleName, kConwayRuleB, kConwayRuleS };
+
+    auto GetActiveRule = [&]() -> const EvolutionRule& {
+        if (useCustomRule) return customRule;
+        return kBuiltInEvolutionRules[currentRuleIdx];
+    };
+
+    const EvolutionRule& activeRule = GetActiveRule();
     static float trailDecay = 0.99f;
     bool logicStepPerformed = false;
 
@@ -1795,7 +1799,7 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
             tickTimer = 0;
             generation++;
             UpdateLifeCuda(gl.d_current, gl.d_next, gl.d_heatData, gl.simW, gl.simH, io.DeltaTime,
-                false, trailDecay, rules[currentRuleIdx].b, rules[currentRuleIdx].s);
+                false, trailDecay, activeRule.b, activeRule.s);
             cudaMemcpy(gl.d_current, gl.d_next, (size_t)gl.simW * gl.simH, cudaMemcpyDeviceToDevice);
             logicStepPerformed = true;
 
@@ -1807,7 +1811,7 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
 
     if (!logicStepPerformed) {
         UpdateLifeCuda(gl.d_current, gl.d_next, gl.d_heatData, gl.simW, gl.simH, io.DeltaTime,
-            true, trailDecay, rules[currentRuleIdx].b, rules[currentRuleIdx].s);
+            true, trailDecay, activeRule.b, activeRule.s);
     }
 
     static float maxPopFound = 1000.0f;
@@ -1939,15 +1943,50 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
                     ImGui::Spacing();
 
                     ImGui::TextColored(coreColor, "EVOLUTION_PROTOCOL");
-                    if (ImGui::BeginCombo("##Rules", rules[currentRuleIdx].name)) {
-                        for (int i = 0; i < IM_ARRAYSIZE(rules); i++) {
-                            bool is_selected = (currentRuleIdx == i);
-                            if (ImGui::Selectable(rules[i].name, is_selected)) {
+                    const char* comboPreview = useCustomRule ? customRule.name : kBuiltInEvolutionRules[currentRuleIdx].name;
+                    if (ImGui::BeginCombo("##Rules", comboPreview)) {
+                        for (int i = 0; i < kBuiltInEvolutionRuleCount; i++) {
+                            bool is_selected = (!useCustomRule && currentRuleIdx == i);
+                            if (ImGui::Selectable(kBuiltInEvolutionRules[i].name, is_selected)) {
                                 currentRuleIdx = i;
+                                useCustomRule = false;
                             }
+                            if (is_selected) ImGui::SetItemDefaultFocus();
                         }
+                        bool custom_selected = useCustomRule;
+                        if (ImGui::Selectable(customRule.name, custom_selected)) {
+                            useCustomRule = true;
+                        }
+                        if (custom_selected) ImGui::SetItemDefaultFocus();
                         ImGui::EndCombo();
                     }
+
+                    ImGui::TextColored(coreColor, "CUSTOM_PROTOCOL");
+                    ImGui::SetNextItemWidth(-1);
+                    ImGui::InputText("##CustomRuleInput", customRuleInput, sizeof(customRuleInput));
+                    if (ImGui::Button("APPLY CUSTOM", { -1, 30 * scale })) {
+                        int parsedB = 0;
+                        int parsedS = 0;
+                        if (ParseBsNotation(customRuleInput, &parsedB, &parsedS)) {
+                            customRule.b = parsedB;
+                            customRule.s = parsedS;
+                            char bsBuf[32] = {};
+                            FormatBsNotation(parsedB, parsedS, bsBuf, sizeof(bsBuf));
+                            snprintf(customRuleName, sizeof(customRuleName), "Custom (%s)", bsBuf);
+                            customRuleError[0] = '\0';
+                            useCustomRule = true;
+                        }
+                        else {
+                            snprintf(customRuleError, sizeof(customRuleError), "Invalid B/S notation (e.g. B3/S23)");
+                        }
+                    }
+                    if (customRuleError[0] != '\0') {
+                        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", customRuleError);
+                    }
+
+                    char activeBs[32] = {};
+                    FormatBsNotation(activeRule.b, activeRule.s, activeBs, sizeof(activeBs));
+                    ImGui::TextDisabled("Active: %s", activeBs);
                     ImGui::Separator();
 
                     if (ImGui::Checkbox("CLASSIC_VISUAL_MODE", &classicMode)) {
@@ -2060,33 +2099,20 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
 
                     ImGui::Separator();
                     ImGui::TextColored(coreColor, "CLASSIC_PRESETS");
-
-                    static const LifePreset kLifePresets[] = {
-                        { "Glider",           "glider.rle",                    "3-cell diagonal spaceship", 0, 0, 0, 0 },
-                        { "LWSS",             "lwss.rle",                      "Lightweight spaceship", 0, 0, 0, 0 },
-                        { "Gosper Gun",       "gosper_glider_gun.rle",         "First known glider gun", 0, 0, 0, 0 },
-                        { "Blinker",          "blinker.rle",                   "Period-2 oscillator", 0, 0, 0, 0 },
-                        { "Toad",             "toad.rle",                      "Period-2 oscillator", 0, 0, 0, 0 },
-                        { "Beacon",           "beacon.rle",                    "Period-2 oscillator", 0, 0, 0, 0 },
-                        { "Pulsar",           "pulsar.rle",                    "Period-3 oscillator", 0, 0, 0, 0 },
-                        { "Pentadecathlon",   "pentadecathlon.rle",            "Period-15 oscillator", 0, 0, 0, 0 },
-                        { "Acorn",            "acorn.rle",                     "5206-gen methuselah", 0, 0, 0, 0 },
-                        { "Die Hard",         "diehard.rle",                   "Dies after 130 gens", 0, 0, 0, 0 },
-                        { "R-Pentomino",      "rpentomino.rle",                "Chaotic methuselah", 0, 0, 0, 0 },
-                        { "124P37 Synth",     "124p37_synth.rle",              "76-glider synthesis", 0, 0, 0, 0 },
-                        { "Spacefiller",      "2_spacefillersynthactivation.rle", "Quadratic growth seed", 0, 0, 0, 0 },
-                        { "Breeder",          "Breeder.rle",                   "Quadratic growth", 0, 0, 0, 0 },
-                        { "Glider Synth",     "glider_synth.rle",              "3-glider block synth", 0, 0, 0, 0 },
-                        { "Metapixel",        "2_metapixel.rle",               "OTCA unit cell (crop)", 489, 489, 1080, 1080 },
-                        { "Caterpillar",      "2_caterpillar.rle",             "17c/45 ship (crop)", 1100, 164800, 1920, 1080 },
-                    };
+                    ImGui::TextDisabled("Showing presets for %s", activeRule.name);
 
                     const int presetCenterX = gl.simW / 2;
                     const int presetCenterY = gl.simH / 2;
                     const float btnW = 155.0f * scale;
+                    int visiblePresets = 0;
 
                     if (ImGui::BeginTable("PresetGrid", 3, ImGuiTableFlags_SizingFixedFit)) {
-                        for (const LifePreset& preset : kLifePresets) {
+                        for (int pi = 0; pi < kLifePresetCount; ++pi) {
+                            const LifePreset& preset = kLifePresets[pi];
+                            if (!RuleMasksEqual(preset.ruleB, preset.ruleS, activeRule.b, activeRule.s)) {
+                                continue;
+                            }
+                            visiblePresets++;
                             ImGui::TableNextColumn();
                             if (ImGui::Button(preset.name, { btnW, 32.0f * scale })) {
                                 if (DeployLifePreset(gl, preset, presetCenterX, presetCenterY, true)) {
@@ -2096,10 +2122,16 @@ void RenderLifeGameScreen_GPU(SimState& state, int winW, int winH, GLHandles& gl
                                 }
                             }
                             if (ImGui::IsItemHovered()) {
-                                ImGui::SetTooltip("%s\n%s", preset.description, preset.file);
+                                char reqBs[32] = {};
+                                FormatBsNotation(preset.ruleB, preset.ruleS, reqBs, sizeof(reqBs));
+                                ImGui::SetTooltip("%s\n%s\nRequires: %s", preset.description, preset.file, reqBs);
                             }
                         }
                         ImGui::EndTable();
+                    }
+
+                    if (visiblePresets == 0) {
+                        ImGui::TextDisabled("No presets for current protocol.");
                     }
 
                     ImGui::Separator();
