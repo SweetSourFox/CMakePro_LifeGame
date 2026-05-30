@@ -43,6 +43,11 @@
 * **规则过滤预设**：`CLASSIC_PRESETS` 仅显示与当前 EP 匹配的图案（如 HighLife 下仅 Replicator，Conway 下显示 22 个经典/高负载图案）。
 * **一键加载**：内置 44 个 RLE 预设，涵盖飞船、振荡器、二次增长、图灵机级压力测试等。
 
+### 8. v1.4.0 经典预设修复
+* **RLE 解析增强**：当 header 尺寸小于 body 数据时自动扩展网格，避免静默丢格。
+* **预设文件校正**：修复 Toad、Beacon、Pulsar、Loafer、Pi Heptomino、Day & Night、Glider Synth、Morley Glider 等图案的 RLE 编码。
+* **校验脚本**：新增 `scripts/validate_presets.py`，可验证全部 44 个注册预设。
+
 ---
 
 ## 💻 运行环境
