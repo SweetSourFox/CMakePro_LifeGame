@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstdio>
 #include <thread>
 #include <atomic>
 #include <mutex>
@@ -501,6 +502,105 @@ inline void LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, 
         << "] successfully loaded at (" << offsetX << ", " << offsetY << ")" << std::endl;
 }
 
+struct EvolutionRule {
+    const char* name;
+    int b;
+    int s;
+};
+
+inline int RuleMaskFromDigits(const char* digits) {
+    int mask = 0;
+    if (!digits) return 0;
+    for (const char* p = digits; *p; ++p) {
+        if (*p >= '0' && *p <= '8') {
+            mask |= (1 << (*p - '0'));
+        }
+    }
+    return mask;
+}
+
+inline bool RuleMasksEqual(int b1, int s1, int b2, int s2) {
+    return b1 == b2 && s1 == s2;
+}
+
+inline void FormatBsNotation(int b, int s, char* buf, size_t cap) {
+    if (!buf || cap == 0) return;
+    size_t pos = 0;
+    pos += (size_t)snprintf(buf + pos, cap - pos, "B");
+    for (int n = 0; n <= 8; ++n) {
+        if (b & (1 << n)) {
+            pos += (size_t)snprintf(buf + pos, cap - pos, "%d", n);
+        }
+    }
+    pos += (size_t)snprintf(buf + pos, cap - pos, "/S");
+    if (s == 0) {
+        pos += (size_t)snprintf(buf + pos, cap - pos, "--");
+    }
+    else {
+        for (int n = 0; n <= 8; ++n) {
+            if (s & (1 << n)) {
+                pos += (size_t)snprintf(buf + pos, cap - pos, "%d", n);
+            }
+        }
+    }
+}
+
+inline bool ParseBsNotation(const char* text, int* outB, int* outS) {
+    if (!text || !outB || !outS) return false;
+
+    std::string input(text);
+    input.erase(std::remove_if(input.begin(), input.end(), ::isspace), input.end());
+    for (char& c : input) c = (char)std::toupper((unsigned char)c);
+
+    size_t slash = input.find('/');
+    if (slash == std::string::npos) return false;
+
+    std::string bPart = input.substr(0, slash);
+    std::string sPart = input.substr(slash + 1);
+
+    if (bPart.size() < 2 || bPart[0] != 'B') return false;
+    if (sPart.size() < 2 || sPart[0] != 'S') return false;
+
+    int bMask = 0;
+    for (size_t i = 1; i < bPart.size(); ++i) {
+        char c = bPart[i];
+        if (c < '0' || c > '8') return false;
+        bMask |= (1 << (c - '0'));
+    }
+
+    int sMask = 0;
+    if (sPart != "S--" && sPart != "S") {
+        for (size_t i = 1; i < sPart.size(); ++i) {
+            char c = sPart[i];
+            if (c == '-') continue;
+            if (c < '0' || c > '8') return false;
+            sMask |= (1 << (c - '0'));
+        }
+    }
+
+    *outB = bMask;
+    *outS = sMask;
+    return true;
+}
+
+inline constexpr int kConwayRuleB = (1 << 3);
+inline constexpr int kConwayRuleS = (1 << 2) | (1 << 3);
+
+inline const EvolutionRule kBuiltInEvolutionRules[] = {
+    { "Conway's Life (B3/S23)", kConwayRuleB, kConwayRuleS },
+    { "HighLife (B36/S23)", (1 << 3) | (1 << 6), (1 << 2) | (1 << 3) },
+    { "Seeds (B2/S--)", (1 << 2), 0 },
+    { "WalledCities (B45678/S2345)", (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) },
+    { "Amoeba (B357/S1358)", (1 << 3) | (1 << 5) | (1 << 7), (1 << 1) | (1 << 3) | (1 << 5) | (1 << 8) },
+    { "Morley (B368/S245)", (1 << 3) | (1 << 6) | (1 << 8), (1 << 2) | (1 << 4) | (1 << 5) },
+    { "Anneal (B4678/S35678)", (1 << 4) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 3) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) },
+    { "Day & Night (B3678/S34678)", (1 << 3) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7) | (1 << 8) },
+    { "2x2 (B36/S125)", (1 << 3) | (1 << 6), (1 << 1) | (1 << 2) | (1 << 5) },
+    { "LifeWithoutDeath (B3/S012345678)", (1 << 3), (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) },
+};
+
+inline constexpr int kBuiltInEvolutionRuleCount = (int)(sizeof(kBuiltInEvolutionRules) / sizeof(kBuiltInEvolutionRules[0]));
+
 struct LifePreset {
     const char* name;
     const char* file;
@@ -509,6 +609,8 @@ struct LifePreset {
     int cropY;
     int cropW;
     int cropH;
+    int ruleB;
+    int ruleS;
 };
 
 inline std::string GetPresetDirectory() {
@@ -641,3 +743,34 @@ inline bool DeployLifePreset(GLHandles& gl, const LifePreset& preset, int center
     std::cout << "PRESET::SUCCESS: Loaded [" << preset.name << "] from " << preset.file << std::endl;
     return true;
 }
+
+inline const LifePreset kLifePresets[] = {
+    { "Glider",           "glider.rle",                    "3-cell diagonal spaceship", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "LWSS",             "lwss.rle",                      "Lightweight spaceship", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Gosper Gun",       "gosper_glider_gun.rle",         "First known glider gun", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Blinker",          "blinker.rle",                   "Period-2 oscillator", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Toad",             "toad.rle",                      "Period-2 oscillator", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Beacon",           "beacon.rle",                    "Period-2 oscillator", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Pulsar",           "pulsar.rle",                    "Period-3 oscillator", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Pentadecathlon",   "pentadecathlon.rle",            "Period-15 oscillator", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Acorn",            "acorn.rle",                     "5206-gen methuselah", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Die Hard",         "diehard.rle",                   "Dies after 130 gens", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "R-Pentomino",      "rpentomino.rle",                "Chaotic methuselah", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "124P37 Synth",     "124p37_synth.rle",              "76-glider synthesis", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Spacefiller",      "2_spacefillersynthactivation.rle", "Quadratic growth seed", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Breeder",          "Breeder.rle",                   "Quadratic growth", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Glider Synth",     "glider_synth.rle",              "3-glider block synth", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Metapixel",        "2_metapixel.rle",               "OTCA unit cell (crop)", 489, 489, 1080, 1080, kConwayRuleB, kConwayRuleS },
+    { "Caterpillar",      "2_caterpillar.rle",             "17c/45 ship (crop)", 1100, 164800, 1920, 1080, kConwayRuleB, kConwayRuleS },
+    { "Replicator",       "replicator.rle",                "HighLife replicator", 0, 0, 0, 0, kBuiltInEvolutionRules[1].b, kBuiltInEvolutionRules[1].s },
+    { "Seeds Dot",        "seeds_dot.rle",                 "Single-cell explosive seed", 0, 0, 0, 0, kBuiltInEvolutionRules[2].b, kBuiltInEvolutionRules[2].s },
+    { "Walled Block",     "walled_block.rle",              "WalledCities seed block", 0, 0, 0, 0, kBuiltInEvolutionRules[3].b, kBuiltInEvolutionRules[3].s },
+    { "Amoeba Seed",      "amoeba_seed.rle",               "Amoeba chaotic seed", 0, 0, 0, 0, kBuiltInEvolutionRules[4].b, kBuiltInEvolutionRules[4].s },
+    { "Morley Glider",    "morley_glider.rle",             "Morley spaceship seed", 0, 0, 0, 0, kBuiltInEvolutionRules[5].b, kBuiltInEvolutionRules[5].s },
+    { "Anneal Crystal",   "anneal_crystal.rle",            "Anneal stable crystal", 0, 0, 0, 0, kBuiltInEvolutionRules[6].b, kBuiltInEvolutionRules[6].s },
+    { "Day & Night",      "daynight_seed.rle",             "Day & Night symmetric seed", 0, 0, 0, 0, kBuiltInEvolutionRules[7].b, kBuiltInEvolutionRules[7].s },
+    { "2x2 Block",        "two_by_two.rle",                "2x2 period-2 oscillator", 0, 0, 0, 0, kBuiltInEvolutionRules[8].b, kBuiltInEvolutionRules[8].s },
+    { "LWD Line",         "lwd_line.rle",                  "LifeWithoutDeath growth line", 0, 0, 0, 0, kBuiltInEvolutionRules[9].b, kBuiltInEvolutionRules[9].s },
+};
+
+inline constexpr int kLifePresetCount = (int)(sizeof(kLifePresets) / sizeof(kLifePresets[0]));
