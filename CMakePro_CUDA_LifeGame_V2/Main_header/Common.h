@@ -347,22 +347,23 @@ inline std::string LoadRleSourceText(const std::string& path) {
     return loadShaderFromFile(path);
 }
 
-// 主解析器：解析 RLE 文本内容
+// 主解析器：解析 RLE 文本内容（若 header 尺寸不足则自动扩展，避免静默丢格）
 inline RlePattern ParseRleFromContent(const std::string& content) {
     RlePattern pattern;
     std::istringstream stream(content);
     std::string line;
     std::string dataStr = "";
     bool headerFound = false;
+    int headerW = 0;
+    int headerH = 0;
 
     while (std::getline(stream, line)) {
         if (line.empty()) continue;
         if (line[0] == '#') continue;
 
         if (!headerFound && line.find('x') != std::string::npos && line.find('y') != std::string::npos) {
-            if (ParseRleHeader(line, pattern.width, pattern.height)) {
+            if (ParseRleHeader(line, headerW, headerH)) {
                 headerFound = true;
-                pattern.data.assign(pattern.width * pattern.height, 0);
             }
             continue;
         }
@@ -372,13 +373,17 @@ inline RlePattern ParseRleFromContent(const std::string& content) {
         }
     }
 
-    if (!headerFound) {
+    if (!headerFound || headerW <= 0 || headerH <= 0) {
         return pattern;
     }
 
     int curX = 0;
     int curY = 0;
     int run = 0;
+    int maxX = 0;
+    int maxY = 0;
+    struct PendingCell { int x; int y; };
+    std::vector<PendingCell> pending;
 
     for (size_t i = 0; i < dataStr.size(); ++i) {
         char c = dataStr[i];
@@ -397,17 +402,35 @@ inline RlePattern ParseRleFromContent(const std::string& content) {
             }
             else if (c == 'o') {
                 for (int r = 0; r < actualRun; ++r) {
-                    if (curX < pattern.width && curY < pattern.height) {
-                        pattern.data[curY * pattern.width + curX] = 1;
-                    }
+                    pending.push_back({ curX, curY });
+                    if (curX + 1 > maxX) maxX = curX + 1;
+                    if (curY + 1 > maxY) maxY = curY + 1;
                     curX++;
                 }
             }
             else if (c == '$') {
                 curY += actualRun;
                 curX = 0;
+                if (curY > maxY) maxY = curY;
             }
         }
+    }
+
+    pattern.width = std::max(headerW, maxX);
+    pattern.height = std::max(headerH, maxY);
+    pattern.data.assign(pattern.width * pattern.height, 0);
+
+    for (const PendingCell& cell : pending) {
+        if (cell.x >= 0 && cell.y >= 0 &&
+            cell.x < pattern.width && cell.y < pattern.height) {
+            pattern.data[cell.y * pattern.width + cell.x] = 1;
+        }
+    }
+
+    if (pattern.width > headerW || pattern.height > headerH) {
+        std::cerr << "RLE_PARSER::WARNING: Expanded pattern from "
+            << headerW << "x" << headerH << " to "
+            << pattern.width << "x" << pattern.height << std::endl;
     }
 
     return pattern;
@@ -430,10 +453,10 @@ inline RlePattern ParseRleFile(const std::string& path) {
 #include <cuda_runtime.h>
 
 // 将 RlePattern 直接载入 GPU 模拟区的指定偏移位置 (offsetX, offsetY)
-inline void LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, int offsetY) {
+inline bool LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, int offsetY) {
     if (pattern.data.empty() || pattern.width <= 0 || pattern.height <= 0) {
         std::cerr << "RLE_GPU_LOADER::ERROR: Empty pattern structure." << std::endl;
-        return;
+        return false;
     }
 
     // 1. 边界裁剪逻辑
@@ -451,7 +474,7 @@ inline void LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, 
 
     if (copyW <= 0 || copyH <= 0) {
         std::cerr << "RLE_GPU_LOADER::ERROR: Invalid offset, pattern is entirely out of grid bounds." << std::endl;
-        return;
+        return false;
     }
 
     // 2. 计算目标指针偏移位置
@@ -478,7 +501,7 @@ inline void LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, 
 
     if (err != cudaSuccess) {
         std::cerr << "RLE_GPU_LOADER::CUDA_ERROR: " << cudaGetErrorString(err) << std::endl;
-        return;
+        return false;
     }
 
     // 4. 同步当前缓冲至下一帧，防止演化覆盖导致闪烁或撕裂
@@ -500,6 +523,7 @@ inline void LoadRleToGpu(GLHandles& gl, const RlePattern& pattern, int offsetX, 
 
     std::cout << "RLE_GPU_LOADER::SUCCESS: Pattern size [" << pattern.width << "x" << pattern.height
         << "] successfully loaded at (" << offsetX << ", " << offsetY << ")" << std::endl;
+    return true;
 }
 
 struct EvolutionRule {
@@ -744,7 +768,10 @@ inline bool DeployLifePreset(GLHandles& gl, const LifePreset& preset, int center
     if (offsetX < 0) offsetX = 0;
     if (offsetY < 0) offsetY = 0;
 
-    LoadRleToGpu(gl, pat, offsetX, offsetY);
+    if (!LoadRleToGpu(gl, pat, offsetX, offsetY)) {
+        std::cerr << "PRESET::ERROR: GPU upload failed for " << preset.file << std::endl;
+        return false;
+    }
     std::cout << "PRESET::SUCCESS: Loaded [" << preset.name << "] from " << preset.file << std::endl;
     return true;
 }
