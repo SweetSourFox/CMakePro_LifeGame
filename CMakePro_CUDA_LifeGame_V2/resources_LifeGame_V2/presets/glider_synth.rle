@@ -1,4 +1,3 @@
-#N Glider synthesis of block
-#C 3-glider synthesis.
-x = 11, y = 8, rule = B3/S23
-2bo$obo$2o2$7b2o$6bo2bo$7b2o$4bo$3b2o!
+#C Glider Synth
+x = 11, y = 11, rule = B3/S23
+2bo8b$1bo9b$2o9b$11b$6bo4b$4b3o4b$3bo7b$3b2o6b$3bo7b$4b3o4b$6bo4b!
