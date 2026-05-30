@@ -37,6 +37,12 @@
 ### 6. 5 大荧光主题预设 (Theme Presets)
 * 集成了 5 套经过精心色彩调试的荧光主题一键切换：`CLASSIC`（经典极客绿）、`CYBER`（赛博霓虹）、`MAGMA`（熔岩火红）、`OCEAN`（冰海深蓝）以及 `MATRIX`（黑客帝国）。
 
+### 7. Evolution Protocol 与规则感知预设 (15 规则 / 44 预设)
+* **15 条内置 Evolution Protocol**：Conway、HighLife、Seeds、WalledCities、Amoeba、Morley、Anneal、Day & Night、2x2、LifeWithoutDeath、Diamoeba、Replicator (B1357/S1357)、Maze、Live Free or Die、Serviettes。
+* **自定义 B/S 协议**：在 `CUSTOM_PROTOCOL` 输入框中填写如 `B368/S245` 并点击 **APPLY CUSTOM**。
+* **规则过滤预设**：`CLASSIC_PRESETS` 仅显示与当前 EP 匹配的图案（如 HighLife 下仅 Replicator，Conway 下显示 22 个经典/高负载图案）。
+* **一键加载**：内置 44 个 RLE 预设，涵盖飞船、振荡器、二次增长、图灵机级压力测试等。
+
 ---
 
 ## 💻 运行环境
@@ -66,6 +72,17 @@
 ---
 
 ## 🌟 推荐测试的巨型 RLE 图案
+
+### GPU 压力测试推荐（内置一键加载）
+
+| 等级 | 预设 | 规则 | 特点 |
+|------|------|------|------|
+| 轻量 | Glider / Loafer / Photon | Conway / Seeds | 飞船与快速演化 |
+| 中等 | Gosper Gun / Switch Engine / Pi | Conway | 持续输出与高瞬态活动 |
+| 重型 | Breeder / Turing Stress / Max Spacefiller | Conway | 二次增长与多 Breeder 复合网格 |
+| 极限 | Metapixel (crop) / Caterpillar (crop) | Conway | 元像素单元 / 巨型飞船局部 |
+
+### 外部 RLE 导入
 
 为了体验 GPU 在并行计算上的霸权级处理优势，强烈建议您在 **`PATTERN_&_IMPORT`** 中载入以下经典巨型图案：
 

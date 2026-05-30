@@ -597,6 +597,11 @@ inline const EvolutionRule kBuiltInEvolutionRules[] = {
     { "Day & Night (B3678/S34678)", (1 << 3) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7) | (1 << 8) },
     { "2x2 (B36/S125)", (1 << 3) | (1 << 6), (1 << 1) | (1 << 2) | (1 << 5) },
     { "LifeWithoutDeath (B3/S012345678)", (1 << 3), (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) },
+    { "Diamoeba (B35678/S5678)", (1 << 3) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) },
+    { "Replicator (B1357/S1357)", (1 << 1) | (1 << 3) | (1 << 5) | (1 << 7), (1 << 1) | (1 << 3) | (1 << 5) | (1 << 7) },
+    { "Maze (B3/S12345)", (1 << 3), (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) },
+    { "Live Free or Die (B2/S0)", (1 << 2), 0 },
+    { "Serviettes (B234/S)", (1 << 2) | (1 << 3) | (1 << 4), 0 },
 };
 
 inline constexpr int kBuiltInEvolutionRuleCount = (int)(sizeof(kBuiltInEvolutionRules) / sizeof(kBuiltInEvolutionRules[0]));
@@ -771,6 +776,24 @@ inline const LifePreset kLifePresets[] = {
     { "Day & Night",      "daynight_seed.rle",             "Day & Night symmetric seed", 0, 0, 0, 0, kBuiltInEvolutionRules[7].b, kBuiltInEvolutionRules[7].s },
     { "2x2 Block",        "two_by_two.rle",                "2x2 period-2 oscillator", 0, 0, 0, 0, kBuiltInEvolutionRules[8].b, kBuiltInEvolutionRules[8].s },
     { "LWD Line",         "lwd_line.rle",                  "LifeWithoutDeath growth line", 0, 0, 0, 0, kBuiltInEvolutionRules[9].b, kBuiltInEvolutionRules[9].s },
+    { "LWD Ladder",       "lwd_ladder.rle",                "Structured infinite growth", 0, 0, 0, 0, kBuiltInEvolutionRules[9].b, kBuiltInEvolutionRules[9].s },
+    { "Diamond Soup",     "diamoeba_soup.rle",             "Diamoeba chaotic diamond seed", 0, 0, 0, 0, kBuiltInEvolutionRules[10].b, kBuiltInEvolutionRules[10].s },
+    { "Dia Spacefiller",  "diamoeba_spacefiller.rle",      "Diamoeba spacefiller head", 0, 0, 0, 0, kBuiltInEvolutionRules[10].b, kBuiltInEvolutionRules[10].s },
+    { "Fredkin Block",    "fredkin_block.rle",             "Replicator-rule 5x5 block", 0, 0, 0, 0, kBuiltInEvolutionRules[11].b, kBuiltInEvolutionRules[11].s },
+    { "Maze Soup",        "maze_soup.rle",                 "Maze crystallization soup", 0, 0, 0, 0, kBuiltInEvolutionRules[12].b, kBuiltInEvolutionRules[12].s },
+    { "LFoD Moon",        "lfod_moon.rle",                 "Live Free or Die spaceship", 0, 0, 0, 0, kBuiltInEvolutionRules[13].b, kBuiltInEvolutionRules[13].s },
+    { "LFoD Duoplet",     "lfod_duoplet.rle",              "Live Free or Die p2 oscillator", 0, 0, 0, 0, kBuiltInEvolutionRules[13].b, kBuiltInEvolutionRules[13].s },
+    { "Serviettes Rug",   "serviettes_rug.rle",            "Persian rug plane-filler seed", 0, 0, 0, 0, kBuiltInEvolutionRules[14].b, kBuiltInEvolutionRules[14].s },
+    { "Seeds Photon",     "seeds_photon.rle",              "Seeds lightspeed ship", 0, 0, 0, 0, kBuiltInEvolutionRules[2].b, kBuiltInEvolutionRules[2].s },
+    { "Morley Puffer",    "morley_puffer.rle",             "Morley 6-cell puffer", 0, 0, 0, 0, kBuiltInEvolutionRules[5].b, kBuiltInEvolutionRules[5].s },
+    { "Anneal Blob",      "anneal_blob.rle",               "Anneal symmetric blob", 0, 0, 0, 0, kBuiltInEvolutionRules[6].b, kBuiltInEvolutionRules[6].s },
+    { "Amoeba Soup",      "amoeba_soup.rle",               "Amoeba random 15x15 soup", 0, 0, 0, 0, kBuiltInEvolutionRules[4].b, kBuiltInEvolutionRules[4].s },
+    { "DayNight Block",   "daynight_block.rle",            "Day & Night complement block", 0, 0, 0, 0, kBuiltInEvolutionRules[7].b, kBuiltInEvolutionRules[7].s },
+    { "Loafer",           "loafer.rle",                    "c/7 orthogonal spaceship", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Pi Heptomino",     "pi_heptomino.rle",              "Explosive pi methuselah", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Switch Engine",    "switch_engine.rle",             "Chaotic switch-engine puffer", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Turing Stress",    "turing_machine.rle",            "Quad-breeder GPU stress grid", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
+    { "Max Spacefiller",  "max_spacefiller.rle",           "Quadratic growth block seed", 0, 0, 0, 0, kConwayRuleB, kConwayRuleS },
 };
 
 inline constexpr int kLifePresetCount = (int)(sizeof(kLifePresets) / sizeof(kLifePresets[0]));
